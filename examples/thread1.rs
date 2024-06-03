@@ -1,8 +1,6 @@
-use std::os::unix::raw::mode_t;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use log::info;
 
 const NUM_PRODUCER: usize = 4;
 
