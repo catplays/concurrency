@@ -1,8 +1,8 @@
+use crate::vector::{dot_product, Vector};
+use oneshot::Receiver;
 use std::ops::{Add, AddAssign, Mul};
 use std::sync::mpsc;
 use std::thread;
-use oneshot::Receiver;
-use crate::vector::{dot_product, Vector};
 
 pub struct Matrix<T> {
     data: Vec<T>,
@@ -27,8 +27,8 @@ impl<T> MsgInput<T> {
 }
 
 pub struct Msg<T> {
-    input:MsgInput<T>,
-    sender: oneshot::Sender<MsgOutput<T>>
+    input: MsgInput<T>,
+    sender: oneshot::Sender<MsgOutput<T>>,
 }
 
 impl<T> Msg<T> {
@@ -39,8 +39,12 @@ impl<T> Msg<T> {
 const NUM_PRODUCER: usize = 4;
 
 // 矩阵乘法
-pub fn multiply<T>(a: &crate::matrix::Matrix<T>, b: &crate::matrix::Matrix<T>) -> anyhow::Result<crate::matrix::Matrix<T>>
-    where T: Copy + Default + Add<Output=T> + AddAssign + Mul<Output=T> + Send + 'static,
+pub fn multiply<T>(
+    a: &crate::matrix::Matrix<T>,
+    b: &crate::matrix::Matrix<T>,
+) -> anyhow::Result<crate::matrix::Matrix<T>>
+where
+    T: Copy + Default + Add<Output = T> + AddAssign + Mul<Output = T> + Send + 'static,
 {
     if a.row != b.col {
         return Err(anyhow::anyhow!("Matrix multiply error: a.col != b.row"));
@@ -50,26 +54,25 @@ pub fn multiply<T>(a: &crate::matrix::Matrix<T>, b: &crate::matrix::Matrix<T>) -
     // 1.构建sender
     let senders = (0..NUM_PRODUCER)
         .map(|_| {
-
             let (tx, rx) = mpsc::channel::<Msg<T>>();
             thread::spawn(move || {
-                for msg in rx  {
+                for msg in rx {
                     let value = dot_product(msg.input.row, msg.input.col)?;
-                    if let Err(e) = msg.sender.send(MsgOutput{
-                        idx:msg.input.idx,
-                        val:value,
+                    if let Err(e) = msg.sender.send(MsgOutput {
+                        idx: msg.input.idx,
+                        val: value,
                     }) {
                         eprintln!("Send error: {:?}", e);
                     }
                 }
                 Ok::<_, anyhow::Error>(())
             });
-            return tx
-        }).collect::<Vec<_>>();
-
+            return tx;
+        })
+        .collect::<Vec<_>>();
 
     let matrix_len = a.row * b.col;
-    let mut receiver:Vec<Receiver<MsgOutput<T>>> = Vec::with_capacity(matrix_len);
+    let mut receiver: Vec<Receiver<MsgOutput<T>>> = Vec::with_capacity(matrix_len);
 
     for i in (0..a.row) {
         for j in 0..b.col {
@@ -83,14 +86,14 @@ pub fn multiply<T>(a: &crate::matrix::Matrix<T>, b: &crate::matrix::Matrix<T>) -
             let col = Vector::new(col_data);
             let idx = i * b.col + j;
             let input = MsgInput::new(idx, row, col);
-            let (tx,rx) = oneshot::channel();
-            let msg = Msg::new(input,tx);
+            let (tx, rx) = oneshot::channel();
+            let msg = Msg::new(input, tx);
             // 发送到通道线程中
-            if let Err(e) = senders[idx%NUM_PRODUCER].send(msg) {
+            if let Err(e) = senders[idx % NUM_PRODUCER].send(msg) {
                 eprintln!("Send error: {:?}", e);
             }
             // 将返回的结果通道存储
-            receiver.push( rx)
+            receiver.push(rx)
         }
     }
     // 计算后的平铺矩阵
@@ -100,14 +103,12 @@ pub fn multiply<T>(a: &crate::matrix::Matrix<T>, b: &crate::matrix::Matrix<T>) -
         data[output.idx] = output.val
     }
 
-
     Ok(crate::matrix::Matrix {
         data,
         row: a.row,
         col: b.col,
     })
 }
-
 
 #[cfg(test)]
 mod test {

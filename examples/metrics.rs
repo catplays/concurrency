@@ -41,7 +41,6 @@ fn task_worker(idx: usize, metrics: Metrics) -> Result<()> {
     Ok(())
 }
 
-
 fn request_worker(metrics: Metrics) -> Result<()> {
     thread::spawn(move || {
         loop {
