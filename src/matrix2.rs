@@ -1,4 +1,3 @@
-use std::env::var;
 use std::ops::{Add, AddAssign, Mul};
 use std::sync::mpsc;
 use std::thread;
